@@ -92,7 +92,7 @@ const darkMapStyles = [
 const HospitalMap = ({ hospitals = [], userLocation, selectedId, onSelect }) => {
   const { isLoaded } = useJsApiLoader({
     id: 'google-map-script',
-    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || "AIzaSyDJdTGwLli0EqgVhf3zQ1l8Gi1_29KKEPc" // Fallback - replace with actual key
+    googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY // Fallback - replace with actual key
   });
 
   const [map, setMap] = useState(null);

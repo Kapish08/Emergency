@@ -3,20 +3,35 @@ pipeline {
 
     environment {
         DOCKER_BUILDKIT = '0'
+
+        // FIX: Docker path for Jenkins
+        PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
         BACKEND_IMAGE = "emergency-devops-backend"
         FRONTEND_IMAGE = "emergency-devops-frontend"
 
-        // MongoDB Atlas (replace with your actual URI OR use Jenkins credentials)
+        // MongoDB Atlas (REPLACE WITH YOUR REAL URI)
         MONGO_URI = "mongodb+srv://kapishbudhiraja61_db_user:Kapish@emergency.r1hapo3.mongodb.net/?appName=Emergency"
     }
 
     stages {
+
+        stage('Check Docker') {
+            steps {
+                echo "Checking Docker Installation"
+                sh '''
+                which docker
+                docker --version
+                '''
+            }
+        }
 
         stage('Build') {
             steps {
                 echo "Building Docker Images"
 
                 sh '''
+                export PATH=$PATH:/usr/local/bin
                 docker compose build || docker compose build || docker compose build
                 '''
             }
@@ -81,8 +96,11 @@ pipeline {
 
         stage('Monitoring') {
             steps {
-                echo "Monitoring Enabled (Simulated with logs)"
-                sh 'docker stats --no-stream || true'
+                echo "Monitoring Application"
+
+                sh '''
+                docker stats --no-stream || true
+                '''
             }
         }
     }

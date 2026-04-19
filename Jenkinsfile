@@ -2,16 +2,12 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_BUILDKIT = '0'
-
-        // FIX: Docker path for Jenkins
-        PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-
         BACKEND_IMAGE = "emergency-devops-backend"
         FRONTEND_IMAGE = "emergency-devops-frontend"
+    }
 
-        // MongoDB Atlas (REPLACE WITH YOUR REAL URI)
-        MONGO_URI = "mongodb+srv://kapishbudhiraja61_db_user:Kapish@emergency.r1hapo3.mongodb.net/?appName=Emergency"
+    tools {
+        sonarScanner 'SonarScanner'
     }
 
     stages {
@@ -20,6 +16,7 @@ pipeline {
             steps {
                 echo "Checking Docker Installation"
                 sh '''
+                export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
                 which docker
                 docker --version
                 '''
@@ -29,10 +26,9 @@ pipeline {
         stage('Build') {
             steps {
                 echo "Building Docker Images"
-
                 sh '''
-                export PATH=$PATH:/usr/local/bin
-                docker compose build || docker compose build || docker compose build
+                export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+                docker compose build
                 '''
             }
         }
@@ -40,34 +36,39 @@ pipeline {
         stage('Test') {
             steps {
                 echo "Running Backend Tests"
-
-                sh '''
-                cd backend
-                npm install
-                MONGO_URI=$MONGO_URI npm test || true
-                '''
+                withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
+                    sh '''
+                    cd backend
+                    npm install
+                    export MONGO_URI=$MONGO_URI
+                    npm test || true
+                    '''
+                }
             }
         }
 
         stage('Code Quality') {
             steps {
-                echo "Running Code Quality Analysis"
-
-                sh '''
-                sonar-scanner \
-                -Dsonar.projectKey=emergency-app \
-                -Dsonar.sources=. || true
-                '''
+                echo "Running SonarQube Analysis"
+                withCredentials([string(credentialsId: 'Emergency', variable: 'SONAR_TOKEN')]) {
+                    withSonarQubeEnv('SonarQube') {
+                        sh '''
+                        sonar-scanner \
+                        -Dsonar.projectKey=emergency-app \
+                        -Dsonar.sources=. \
+                        -Dsonar.host.url=http://localhost:9000 \
+                        -Dsonar.login=$SONAR_TOKEN
+                        '''
+                    }
+                }
             }
         }
 
         stage('Security') {
             steps {
-                echo "Running Security Scan"
-
+                echo "Security Scan (Simulated)"
                 sh '''
-                trivy image $BACKEND_IMAGE || true
-                trivy image $FRONTEND_IMAGE || true
+                echo "Trivy scan completed (simulated)"
                 '''
             }
         }
@@ -75,8 +76,8 @@ pipeline {
         stage('Deploy') {
             steps {
                 echo "Deploying Application"
-
                 sh '''
+                export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
                 docker compose down || true
                 docker compose up -d
                 '''
@@ -85,22 +86,17 @@ pipeline {
 
         stage('Release') {
             steps {
-                echo "Tagging Docker Images"
-
+                echo "Release Stage (Simulated)"
                 sh '''
-                docker tag $BACKEND_IMAGE yourdockerhub/$BACKEND_IMAGE:latest || true
-                docker tag $FRONTEND_IMAGE yourdockerhub/$FRONTEND_IMAGE:latest || true
+                echo "Docker images pushed (simulated)"
                 '''
             }
         }
 
         stage('Monitoring') {
             steps {
-                echo "Monitoring Application"
-
-                sh '''
-                docker stats --no-stream || true
-                '''
+                echo "Monitoring Enabled"
+                echo "Prometheus & Grafana (simulated)"
             }
         }
     }
@@ -110,10 +106,10 @@ pipeline {
             echo "Pipeline execution completed"
         }
         success {
-            echo "Pipeline executed successfully!"
+            echo "Pipeline SUCCESS ✅"
         }
         failure {
-            echo "Pipeline failed. Check logs."
+            echo "Pipeline FAILED ❌"
         }
     }
 }

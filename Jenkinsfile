@@ -2,37 +2,42 @@ pipeline {
     agent any
 
     environment {
+        DOCKER_BUILDKIT = '0'
         BACKEND_IMAGE = "emergency-devops-backend"
         FRONTEND_IMAGE = "emergency-devops-frontend"
-        PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
+
+        // MongoDB Atlas (replace with your actual URI OR use Jenkins credentials)
+        MONGO_URI = "mongodb+srv://kapishbudhiraja61_db_user:Kapish@emergency.r1hapo3.mongodb.net/?appName=Emergency"
     }
 
     stages {
 
-        // ================= BUILD =================
         stage('Build') {
             steps {
                 echo "Building Docker Images"
-                sh 'docker compose build'
-            }
-        }
 
-        // ================= TEST =================
-        stage('Test') {
-            steps {
-                echo "Running Backend Tests"
                 sh '''
-                cd backend
-                npm install || true
-                npm test || true
+                docker compose build || docker compose build || docker compose build
                 '''
             }
         }
 
-        // ================= CODE QUALITY =================
+        stage('Test') {
+            steps {
+                echo "Running Backend Tests"
+
+                sh '''
+                cd backend
+                npm install
+                MONGO_URI=$MONGO_URI npm test || true
+                '''
+            }
+        }
+
         stage('Code Quality') {
             steps {
-                echo "Running SonarQube Analysis"
+                echo "Running Code Quality Analysis"
+
                 sh '''
                 sonar-scanner \
                 -Dsonar.projectKey=emergency-app \
@@ -41,46 +46,43 @@ pipeline {
             }
         }
 
-        // ================= SECURITY =================
         stage('Security') {
             steps {
-                echo "Scanning Docker Images with Trivy"
-                sh 'trivy image emergency-devops-backend || true'
-                sh 'trivy image emergency-devops-frontend || true'
-            }
-        }
-
-        // ================= DEPLOY =================
-        stage('Deploy') {
-            steps {
-                echo "Stopping existing containers (if any)"
-                sh 'docker compose down || true'
-                sh 'docker rm -f $(docker ps -aq) || true'
-
-                echo "Deploying application"
-                sh 'docker compose up -d'
-            }
-        }
-
-        // ================= RELEASE =================
-        stage('Release') {
-            steps {
-                echo "Tagging and pushing Docker images"
+                echo "Running Security Scan"
 
                 sh '''
-                docker tag emergency-devops-backend yourdockerhub/emergency-backend:latest || true
-                docker tag emergency-devops-frontend yourdockerhub/emergency-frontend:latest || true
-
-                docker push yourdockerhub/emergency-backend:latest || true
-                docker push yourdockerhub/emergency-frontend:latest || true
+                trivy image $BACKEND_IMAGE || true
+                trivy image $FRONTEND_IMAGE || true
                 '''
             }
         }
 
-        // ================= MONITORING =================
+        stage('Deploy') {
+            steps {
+                echo "Deploying Application"
+
+                sh '''
+                docker compose down || true
+                docker compose up -d
+                '''
+            }
+        }
+
+        stage('Release') {
+            steps {
+                echo "Tagging Docker Images"
+
+                sh '''
+                docker tag $BACKEND_IMAGE yourdockerhub/$BACKEND_IMAGE:latest || true
+                docker tag $FRONTEND_IMAGE yourdockerhub/$FRONTEND_IMAGE:latest || true
+                '''
+            }
+        }
+
         stage('Monitoring') {
             steps {
-                echo "Monitoring stage: Prometheus & Grafana integration (conceptual/demo)"
+                echo "Monitoring Enabled (Simulated with logs)"
+                sh 'docker stats --no-stream || true'
             }
         }
     }

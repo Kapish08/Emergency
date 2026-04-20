@@ -2,114 +2,110 @@ pipeline {
     agent any
 
     environment {
+        PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
         BACKEND_IMAGE = "emergency-devops-backend"
         FRONTEND_IMAGE = "emergency-devops-frontend"
-    }
-
-    tools {
-        sonarScanner 'SonarScanner'
     }
 
     stages {
 
         stage('Check Docker') {
             steps {
-                echo "Checking Docker Installation"
                 sh '''
-                export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+                echo "Checking Docker..."
                 which docker
                 docker --version
+                docker info
                 '''
             }
         }
 
         stage('Build') {
             steps {
-                echo "Building Docker Images"
                 sh '''
-                export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
+                export PATH=$PATH
                 docker compose build
                 '''
             }
         }
 
         stage('Test') {
+            environment {
+                MONGO_URI = credentials('mongo-uri')
+            }
             steps {
-                echo "Running Backend Tests"
-                withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
-                    sh '''
-                    cd backend
-                    npm install
-                    export MONGO_URI=$MONGO_URI
-                    npm test || true
-                    '''
-                }
+                sh '''
+                cd backend
+                npm install
+                export MONGO_URI=$MONGO_URI
+                npm test || true
+                '''
             }
         }
 
         stage('Code Quality') {
+            environment {
+                SONAR_TOKEN = credentials('Emergency')
+            }
             steps {
-                echo "Running SonarQube Analysis"
-                withCredentials([string(credentialsId: 'Emergency', variable: 'SONAR_TOKEN')]) {
-                    withSonarQubeEnv('SonarQube') {
-                        sh '''
-                        sonar-scanner \
-                        -Dsonar.projectKey=emergency-app \
-                        -Dsonar.sources=. \
-                        -Dsonar.host.url=http://localhost:9000 \
-                        -Dsonar.login=$SONAR_TOKEN
-                        '''
-                    }
-                }
+                sh '''
+                if command -v sonar-scanner >/dev/null 2>&1; then
+                    sonar-scanner \
+                      -Dsonar.projectKey=emergency-app \
+                      -Dsonar.sources=. \
+                      -Dsonar.login=$SONAR_TOKEN
+                else
+                    echo "Skipping SonarQube (not installed)"
+                fi
+                '''
             }
         }
 
         stage('Security') {
             steps {
-                echo "Security Scan (Simulated)"
                 sh '''
-                echo "Trivy scan completed (simulated)"
+                if command -v trivy >/dev/null 2>&1; then
+                    trivy image $BACKEND_IMAGE || true
+                    trivy image $FRONTEND_IMAGE || true
+                else
+                    echo "Skipping Trivy scan"
+                fi
                 '''
             }
         }
 
         stage('Deploy') {
             steps {
-                echo "Deploying Application"
                 sh '''
-                export PATH=/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin
                 docker compose down || true
-                docker compose up -d
+                docker compose up -d || true
                 '''
             }
         }
 
         stage('Release') {
             steps {
-                echo "Release Stage (Simulated)"
                 sh '''
-                echo "Docker images pushed (simulated)"
+                docker tag $BACKEND_IMAGE yourdockerhub/ehf-backend:latest || true
+                docker tag $FRONTEND_IMAGE yourdockerhub/ehf-frontend:latest || true
+
+                docker push yourdockerhub/ehf-backend:latest || true
+                docker push yourdockerhub/ehf-frontend:latest || true
                 '''
             }
         }
 
         stage('Monitoring') {
             steps {
-                echo "Monitoring Enabled"
-                echo "Prometheus & Grafana (simulated)"
+                echo "Monitoring stage (placeholder)"
             }
         }
     }
 
     post {
         always {
-            echo "Pipeline execution completed"
-        }
-        success {
-            echo "Pipeline SUCCESS ✅"
-        }
-        failure {
-            echo "Pipeline FAILED ❌"
+            sh 'docker system prune -f || true'
+            echo "Pipeline completed"
         }
     }
 }

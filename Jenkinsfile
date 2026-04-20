@@ -2,7 +2,6 @@ pipeline {
     agent any
 
     environment {
-        // Ensure compatibility with macOS Homebrew and default paths
         PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH}"
     }
 
@@ -72,7 +71,7 @@ pipeline {
                       -Dsonar.projectKey=Kapish08_Emergency \
                       -Dsonar.organization=kapish08 \
                       -Dsonar.host.url=https://sonarcloud.io \
-                      -Dsonar.login=$SONAR_TOKEN || true
+                      -Dsonar.token=$SONAR_TOKEN || true
                     '''
                 }
             }

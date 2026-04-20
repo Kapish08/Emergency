@@ -14,22 +14,14 @@ pipeline {
         }
 
         stage('Install Dependencies') {
-            parallel {
-                stage('Frontend Dependencies') {
-                    steps {
-                        dir('frontend') {
-                            echo 'Installing frontend dependencies...'
-                            sh 'npm install'
-                        }
-                    }
+            steps {
+                dir('frontend') {
+                    echo 'Installing frontend dependencies...'
+                    sh 'npm install'
                 }
-                stage('Backend Dependencies') {
-                    steps {
-                        dir('backend') {
-                            echo 'Installing backend dependencies...'
-                            sh 'npm install'
-                        }
-                    }
+                dir('backend') {
+                    echo 'Installing backend dependencies...'
+                    sh 'npm install'
                 }
             }
         }
@@ -112,12 +104,24 @@ pipeline {
 
     post {
         always {
-            echo 'Running complete cleanup...'
-            sh 'docker system prune -f || true'
+            script {
+                try {
+                    echo 'Running complete cleanup...'
+                    sh 'docker system prune -f || true'
+                } catch (Exception e) {
+                    echo "Could not run cleanup (workspace might be offline)."
+                }
+            }
         }
         failure {
-            echo 'Pipeline failed. Fetching Docker logs for debugging...'
-            sh 'docker compose logs || true'
+            script {
+                try {
+                    echo 'Pipeline failed. Fetching Docker logs for debugging...'
+                    sh 'docker compose logs || true'
+                } catch (Exception e) {
+                    echo "Could not fetch Docker logs (workspace might be offline)."
+                }
+            }
         }
     }
 }

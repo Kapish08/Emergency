@@ -91,12 +91,12 @@ pipeline {
         // ✅ CODE QUALITY (SONAR)
         stage('Code Quality Analysis') {
             steps {
-                withCredentials([string(credentialsId: 'Emergency', variable: 'SONAR_TOKEN')]) {
+                withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
                     sh '''
                     if command -v sonar-scanner >/dev/null 2>&1; then
                         sonar-scanner \
-                        -Dsonar.projectKey=emergency-app \
-                        -Dsonar.organization=YOUR_ORG_NAME \
+                        -Dsonar.projectKey=Kapish08_Emergency \
+                        -Dsonar.organization=kapish08Kapish08_Emergency \
                         -Dsonar.sources=backend,frontend \
                         -Dsonar.host.url=https://sonarcloud.io \
                         -Dsonar.login=$SONAR_TOKEN

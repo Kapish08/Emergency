@@ -38,9 +38,9 @@ pipeline {
             steps {
                 echo 'Building frontend and Docker images...'
                 dir('frontend') {
-                    sh 'npm run build || true'
+                    sh 'npm run build'
                 }
-                sh 'docker compose build || true'
+                sh 'docker compose build'
             }
         }
 
@@ -51,10 +51,10 @@ pipeline {
                     dir('backend') {
                         sh '''
                         echo "Testing MongoDB connection status..."
-                        node -e "const mongoose = require('mongoose'); mongoose.connect(process.env.MONGO_URI).then(() => { console.log('MongoDB connected successfully'); process.exit(0); }).catch(e => { console.error('MongoDB connection failed', e); process.exit(0); });" || true
+                        node -e "const mongoose = require('mongoose'); mongoose.connect(process.env.MONGO_URI || '').then(() => { console.log('MongoDB connected successfully'); process.exit(0); }).catch(e => { console.error('MongoDB connection failed. Ensure Jenkins mongo-uri credential is valid!', e); process.exit(1); });"
                         
                         echo "Running tests..."
-                        npm test || true
+                        npm test
                         '''
                     }
                 }
@@ -71,7 +71,7 @@ pipeline {
                       -Dsonar.projectKey=Kapish08_Emergency \
                       -Dsonar.organization=kapish08 \
                       -Dsonar.host.url=https://sonarcloud.io \
-                      -Dsonar.token=$SONAR_TOKEN || true
+                      -Dsonar.token=$SONAR_TOKEN
                     '''
                 }
             }
@@ -83,7 +83,7 @@ pipeline {
                 sh '''
                 if command -v trivy &> /dev/null; then
                     echo "Trivy is installed. Running file system scan..."
-                    trivy fs . || true
+                    trivy fs .
                 else
                     echo "Trivy not installed, skipping scan..."
                 fi
@@ -96,8 +96,11 @@ pipeline {
                 echo 'Deploying via Docker Compose...'
                 withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
                     sh '''
-                    export MONGO_URI=$MONGO_URI
-                    docker compose up -d || true
+                    # Stop and remove existing containers if any
+                    docker compose down || true
+                    
+                    # Ensure docker-compose uses the injected MONGO_URI
+                    docker compose up -d --build
                     
                     echo "Container status:"
                     docker ps

@@ -4,6 +4,12 @@
 
 const { app } = require('../server');
 const request = require('supertest');
+const mongoose = require('mongoose');
+
+afterAll(async () => {
+  // Close database connection after tests finish to avoid open handle errors
+  await mongoose.connection.close();
+});
 
 describe('Health Check', () => {
   it('should return 200 OK for /api/health', async () => {
@@ -42,12 +48,25 @@ describe('Hospitals API', () => {
   });
 
   it('should return 404 for unknown hospital id', async () => {
-    const res = await request(app).get('/api/hospitals/invalid-id');
+    // We use a valid hexadecimal MongoDB ObjectId that doesn't exist
+    const res = await request(app).get('/api/hospitals/603d2b2f9b1e8a001c8e4a1a');
     expect(res.statusCode).toBe(404);
   });
 });
 
 describe('Auth API', () => {
+  const testEmail = `john_${Date.now()}@example.com`;
+  const testPassword = 'password123';
+
+  beforeAll(async () => {
+    // Ensure we create a test user to login with successfully
+    await request(app).post('/api/auth/signup').send({
+      name: 'John Doe',
+      email: testEmail,
+      password: testPassword
+    });
+  });
+
   it('should reject login with invalid credentials', async () => {
     const res = await request(app)
       .post('/api/auth/login')
@@ -58,7 +77,7 @@ describe('Auth API', () => {
   it('should login with valid credentials', async () => {
     const res = await request(app)
       .post('/api/auth/login')
-      .send({ email: 'john@example.com', password: 'password123' });
+      .send({ email: testEmail, password: testPassword });
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty('token');
   });

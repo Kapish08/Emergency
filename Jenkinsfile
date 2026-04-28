@@ -2,52 +2,63 @@ pipeline {
     agent any
 
     environment {
+        // Ensure PATH includes typical locations for Docker and node
         PATH = "/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH}"
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo 'Checking out code...'
+                echo 'Checking out source code...'
                 checkout scm
             }
         }
 
         stage('Install Dependencies') {
-            steps {
-                dir('frontend') {
-                    echo 'Installing frontend dependencies...'
-                    sh 'npm install'
+            parallel {
+                stage('Frontend') {
+                    steps {
+                        dir('frontend') {
+                            echo 'Installing frontend dependencies...'
+                            sh 'npm ci'
+                        }
+                    }
                 }
-                dir('backend') {
-                    echo 'Installing backend dependencies...'
-                    sh 'npm install'
+                stage('Backend') {
+                    steps {
+                        dir('backend') {
+                            echo 'Installing backend dependencies...'
+                            sh 'npm ci'
+                        }
+                    }
                 }
             }
         }
 
-        stage('Build') {
+        stage('Build Docker Images') {
             steps {
-                echo 'Building frontend and Docker images...'
-                dir('frontend') {
-                    sh 'npm run build'
-                }
+                echo 'Building Docker images via docker compose...'
                 sh 'docker compose build'
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running backend tests with MongoDB Atlas...'
+                // Test backend, ensuring MongoDB connection works
                 withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
                     dir('backend') {
+                        echo 'Running backend tests...'
+                        // Simple connection sanity check before npm test
                         sh '''
-                        echo "Testing MongoDB connection status..."
-                        node -e "const mongoose = require('mongoose'); mongoose.connect(process.env.MONGO_URI || '').then(() => { console.log('MongoDB connected successfully'); process.exit(0); }).catch(e => { console.error('MongoDB connection failed. Ensure Jenkins mongo-uri credential is valid!', e); process.exit(1); });"
-                        
-                        echo "Running tests..."
-                        npm test
+                        node -e "
+                            const mongoose = require('mongoose');
+                            const uri = process.env.MONGO_URI;
+                            mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
+                                .then(() => { console.log('MongoDB connection OK'); process.exit(0); })
+                                .catch(err => { console.error('MongoDB connection FAILED', err); process.exit(1); });
+                        "
                         '''
+                        sh 'npm test'
                     }
                 }
             }
@@ -55,15 +66,14 @@ pipeline {
 
         stage('Code Quality') {
             steps {
-                echo 'Running SonarCloud analysis...'
                 withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+                    echo 'Running SonarQube analysis...'
                     sh '''
-                    echo "Initializing SonarScanner..."
                     sonar-scanner \
-                      -Dsonar.projectKey=Kapish08_Emergency \
-                      -Dsonar.organization=kapish08 \
-                      -Dsonar.host.url=https://sonarcloud.io \
-                      -Dsonar.token=$SONAR_TOKEN
+                        -Dsonar.projectKey=Kapish08_Emergency \
+                        -Dsonar.organization=kapish08 \
+                        -Dsonar.host.url=https://sonarcloud.io \
+                        -Dsonar.login=$SONAR_TOKEN
                     '''
                 }
             }
@@ -73,11 +83,11 @@ pipeline {
             steps {
                 echo 'Running Trivy security scan...'
                 sh '''
-                if command -v trivy &> /dev/null; then
-                    echo "Trivy is installed. Running file system scan..."
+                if command -v trivy >/dev/null 2>&1; then
+                    echo "Trivy found – scanning filesystem..."
                     trivy fs .
                 else
-                    echo "Trivy not installed, skipping scan..."
+                    echo "Trivy not installed – skipping security scan."
                 fi
                 '''
             }
@@ -85,16 +95,12 @@ pipeline {
 
         stage('Deploy') {
             steps {
-                echo 'Deploying via Docker Compose...'
                 withCredentials([string(credentialsId: 'mongo-uri', variable: 'MONGO_URI')]) {
+                    echo 'Deploying application with Docker Compose...'
                     sh '''
-                    # Stop and remove existing containers if any
-                    docker compose down || true
-                    
-                    # Ensure docker-compose uses the injected MONGO_URI
+                    docker compose down --remove-orphans || true
                     docker compose up -d --build
-                    
-                    echo "Container status:"
+                    echo "Running containers:"
                     docker ps
                     '''
                 }
@@ -104,24 +110,12 @@ pipeline {
 
     post {
         always {
-            script {
-                try {
-                    echo 'Running complete cleanup...'
-                    sh 'docker system prune -f || true'
-                } catch (Exception e) {
-                    echo "Could not run cleanup (workspace might be offline)."
-                }
-            }
+            echo 'Cleaning up Docker resources...'
+            sh 'docker system prune -f || true'
         }
         failure {
-            script {
-                try {
-                    echo 'Pipeline failed. Fetching Docker logs for debugging...'
-                    sh 'docker compose logs || true'
-                } catch (Exception e) {
-                    echo "Could not fetch Docker logs (workspace might be offline)."
-                }
-            }
+            echo 'Pipeline failed – collecting Docker logs for debugging.'
+            sh 'docker compose logs || true'
         }
     }
 }

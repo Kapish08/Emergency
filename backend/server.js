@@ -10,6 +10,7 @@ const helmet = require('helmet');
 const fs = require('fs');
 const mongoose = require('mongoose');
 const morgan = require('morgan');
+const { register, metricsMiddleware, updateMongoStatus } = require('./metrics');
 
 // Routes
 const authRoutes = require('./routes/auth');
@@ -40,6 +41,9 @@ app.use(cors({
 // Request logging
 app.use(morgan('dev'));
 
+// Prometheus metrics middleware
+app.use(metricsMiddleware);
+
 // JSON body parsing
 app.use(express.json({ limit: '10kb' })); // Limit payload size
 
@@ -48,6 +52,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/hospitals', hospitalRoutes);
 app.use('/api/alerts', alertRoutes);
 app.use('/api/bookings', bookingRoutes);
+
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    updateMongoStatus(mongoose);
+    res.set('Content-Type', register.contentType);
+    res.end(await register.metrics());
+  } catch (err) {
+    res.status(500).end(err.message);
+  }
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

@@ -1,0 +1,21 @@
+# Prometheus Configuration for Emergency Hospital Finder
+# Scrapes metrics from the backend API container
+
+global:
+  scrape_interval: 15s        # Scrape targets every 15 seconds
+  evaluation_interval: 15s    # Evaluate rules every 15 seconds
+
+scrape_configs:
+  # ─── Backend API metrics ─────────────────────────────────────
+  - job_name: 'ehf-backend'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['backend:5000']
+        labels:
+          service: 'emergency-hospital-finder'
+          component: 'backend'
+
+  # ─── Prometheus self-monitoring ──────────────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

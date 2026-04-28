@@ -50,14 +50,14 @@ pipeline {
                         echo 'Running backend tests...'
                         // Simple connection sanity check before npm test
                         sh '''
-                        node -e "
-                            const mongoose = require('mongoose');
-                            const uri = process.env.MONGO_URI;
-                            mongoose.connect(uri, { useNewUrlParser: true, useUnifiedTopology: true })
-                                .then(() => { console.log('MongoDB connection OK'); process.exit(0); })
-                                .catch(err => { console.error('MongoDB connection FAILED', err); process.exit(1); });
-                        "
-                        '''
+node -e "
+    const mongoose = require('mongoose');
+    const uri = process.env.MONGO_URI;
+    mongoose.connect(uri)
+        .then(() => { console.log('MongoDB connection OK'); process.exit(0); })
+        .catch(err => { console.error('MongoDB connection FAILED', err); process.exit(1); });
+"
+'''
                         sh 'npm test'
                     }
                 }

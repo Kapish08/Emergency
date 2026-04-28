@@ -106,26 +106,26 @@ node -e "
                 }
             }
         }
+         stage('Monitoring Verification') {
+            steps {
+                echo 'Verifying Prometheus and Grafana services...'
+
+                sh '''
+                echo "Checking running containers..."
+                docker ps
+
+                echo "Checking Prometheus..."
+                curl -f http://localhost:9090/-/healthy || exit 1
+
+                echo "Checking Grafana..."
+                curl -f http://localhost:3001/api/health || exit 1
+
+                echo "Monitoring stack is running successfully."
+                '''
+                }
+        }
+
     }
-
-    stage('Monitoring Verification') {
-    steps {
-        echo 'Verifying Prometheus and Grafana services...'
-
-        sh '''
-        echo "Checking running containers..."
-        docker ps
-
-        echo "Checking Prometheus..."
-        curl -f http://localhost:9090/-/healthy || exit 1
-
-        echo "Checking Grafana..."
-        curl -f http://localhost:3001/api/health || exit 1
-
-        echo "Monitoring stack is running successfully."
-        '''
-    }
-}
 
     post {
         always {

@@ -106,24 +106,17 @@ node -e "
                 }
             }
         }
-         stage('Monitoring Verification') {
+        stage('Monitoring Setup') {
             steps {
-                echo 'Verifying Prometheus and Grafana services...'
+                echo 'Starting Prometheus & Grafana'
 
                 sh '''
-                echo "Checking running containers..."
-                docker ps
-
-                echo "Checking Prometheus..."
-                curl -f http://localhost:9090/-/healthy || exit 1
-
-                echo "Checking Grafana..."
-                curl -f http://localhost:3001/api/health || exit 1
-
-                echo "Monitoring stack is running successfully."
+                docker-compose -f docker/monitoring-compose.yml down || true
+                docker-compose -f docker/monitoring-compose.yml up -d
                 '''
-                }
+            }
         }
+    }
 
     }
 

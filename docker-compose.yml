@@ -42,7 +42,7 @@ services:
 
   # ─── Prometheus ──────────────────────────────────────────────
   prometheus:
-    image: prom/prometheus:latest
+    image: prom/prometheus:v2.51.0
     container_name: ehf-prometheus
     ports:
       - "9090:9090"

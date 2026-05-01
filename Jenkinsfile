@@ -118,8 +118,6 @@ node -e "
         }
     }
 
-    }
-
     post {
         always {
             echo 'Cleaning up Docker resources...'
